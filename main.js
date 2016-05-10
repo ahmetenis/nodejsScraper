@@ -32,7 +32,9 @@ function getNext(query, max_pos, count, lang) {
       max_pos = data[data.length-1]["tweetId"]
       console.log(max_pos)
       console.log("TOTAL COUNT: ", count)
-      getNext(query, json["min_position"], count, lang)
+      if (count < 200) {
+        getNext(query, json["min_position"], count, lang)
+      }
     })
   })
   console.log(url)
@@ -52,6 +54,6 @@ function getTweets(query, lang) {
   })
 }
 
-getTweets("mazda")
+getTweets("manisa")
 
 module.exports.getTweets = getTweets

@@ -14,12 +14,14 @@ function getAccountsWithActivity(tweetId, activity) {
     try {
       var json = JSON.parse(html)
       console.log('getting ' + activity + ' popup')
+      var count = json.htmlTitle.match(/[0-9]+/)[0]
       getJsonFromPopup(json.htmlUsers)(function(err, data) {
         if (err) {
           console.log(err)
           deferred.reject(err)
         } else {
-          deferred.resolve(data)
+
+          deferred.resolve({count: count, data:data})
         }
       })
     } catch(e) {
@@ -43,10 +45,13 @@ function getActivityDetails(tweetIdList) {
     getAccountsWithActivity(tweetId).then(function(response) {
       var data = {
         tweetId: tweetId,
-        retweetedAccounts: response 
+        rtCount: response.count,
+        retweetedAccounts: response.data
       }
       getAccountsWithActivity(tweetId, 'favorited').then(function(response) {
-        data['favoritedAccounts'] = response
+        data['favCount'] = response.count
+        data['favoritedAccounts'] = response.data
+
         fs.appendFileSync("activity.json", JSON.stringify(data) + ",\n")
       })
     })
@@ -55,7 +60,7 @@ function getActivityDetails(tweetIdList) {
 
 
 function main() {
-  fs.readFile('syria.json', 'utf-8', function(err, data) {
+  fs.readFile('manisa.json', 'utf-8', function(err, data) {
     var tweetsJson = JSON.parse("["+data+"]")
 
     var tweetIdList = tweetsJson[0].map(function(tweet) {
