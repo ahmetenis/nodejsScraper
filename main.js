@@ -52,4 +52,6 @@ function getTweets(query, lang) {
   })
 }
 
-getTweets("syria", "fr")
+getTweets("mazda")
+
+module.exports.getTweets = getTweets
