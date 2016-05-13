@@ -1,2 +1,0 @@
-{# JSON file #}
-{latt, long, mile, langs=[]}
