@@ -28,14 +28,14 @@ function getNext(query, max_pos, count) {
     getJson(json["items_html"])(function(err, data) {
       fs.appendFile('tmp/'+query+'.json', ',\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
-        console.log("No more tweets are returned\nTOTAL COUNT:", count)
+        console.log("No more tweets\nTOTAL COUNT:", count)
         return
       } 
       count += json.new_latent_count
       max_pos = data[data.length-1]["tweetId"]
       console.log(max_pos)
       console.log("TOTAL COUNT: ", count)
-      if (count < 200) {
+      if (count < 50000) {
         getNext(query, json["min_position"], count)
       }
     })
@@ -47,15 +47,13 @@ function getTweets(query) {
   console.log("getting tweets for query: " + query)
   var url = "https://twitter.com/search?q="+query+"&src=typd"
   console.log(url)
-  var min_position, max_position
   getJson(url)(function(err, data) {
     if (data) {
       fs.writeFile('tmp/'+query+'.json', JSON.stringify(data))
-      min_position = data[0]["tweetId"]
-      max_position = data[data.length - 1]["tweetId"]
-      max_position = "TWEET-" + max_position + "-" + min_position
-      console.log('max_position: ', max_position)
-      getNext(query, max_position, data.length)
+      x(url, 'div.stream-container@data-min-position')(function(err, data) {
+        console.log(data)
+        getNext(query, data, 0)
+      })
     }
   })
 }
@@ -63,14 +61,16 @@ function getTweets(query) {
 
 function generateQueryFromFiles() {
   var query = ""
+
+  // KEYWORDS
   var keywords = fs.readFileSync("./keywords.txt", "utf-8").toString().match(/^.+$/gm)
-  console.log(keywords)
   if (keywords) {
     keywords.forEach(function(keyword) {
       query += keyword + " "
     })
     query = query.trim()
   }
+  // USERS
   var users = fs.readFileSync("./users.txt", "utf-8").toString().match(/^.+$/gm)
   console.log(users)
   if (users) {
@@ -83,19 +83,45 @@ function generateQueryFromFiles() {
     })
     query = query.trim()
   }
+
+  // GEOCODE
   var geoCode = fs.readFileSync("./geoCode.json", "utf-8").toString()
   if (geoCode) {
     geoCode = JSON.parse(geoCode)
-    var latt = geoCode["latt"]
+    var lat = geoCode["lat"]
     var long = geoCode["long"]
     var place = geoCode["place"]
     var mile = geoCode["mile"]
     var lang = geoCode["lang"]
-    if    
+    mile = mile || "15"
+    if (lat && long) {
+      query += ' near:"' + lat + "," + long + '" within:' + mile + "mi"
+    } else if (place) {
+      query += ' near:"' + place + '" within:' + mile + 'mi'
+    }
+
+    if (lang) {
+      query += " lang:" + lang
+    }
+    query = query.trim()
   }
+
+
+  // MENTIONING
   var mentioning = fs.readFileSync("./mention.txt", "utf-8").toString().match(/^.+$/gm)
+  if (mentioning) {
+    mentioning.forEach(function(user, index) {
+      if (index == 0) {
+        query += " @" + user
+      } else {
+        query += " OR @" + user
+      }
+    })
+    query = query.trim()
+  }
+
   console.log('query: ' + query)
-  query = encodeURI(query)
+  query = encodeURI(query).replace(/\:/g, '%3A').replace(/\"/g, '%22').replace(/\@/g, '%40')
   return query
 }
 
