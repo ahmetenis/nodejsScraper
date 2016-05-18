@@ -19,40 +19,46 @@ function getJson(html) {
      > button.ProfileTweet-actionButton.js-actionButton.js-actionFavorite > div.IconTextContainer > span > span",
     timestamp: "a.tweet-timestamp span._timestamp @data-time"
   }])
+  // get mentions as well 
+  // if exists get hashtag as well
 }
 
-function getNext(query, max_pos, count) {
+function getNext(query, max_pos, count, filterFunc) {
   var url = "https://twitter.com/i/search/timeline?vertical=news&q="+query+"&src=typd&include_available_features=1&include_entities=1&max_position="+max_pos
   request(url, function(err, response, html) {
     json = JSON.parse(html)
     getJson(json["items_html"])(function(err, data) {
+      if (filterFunc) {
+        data = data.filter(filterFunc)
+      }
       fs.appendFile('tmp/'+query+'.json', ',\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
         return
       } 
       count += json.new_latent_count
-      max_pos = data[data.length-1]["tweetId"]
-      console.log(max_pos)
       console.log("TOTAL COUNT: ", count)
       if (count < 50000) {
-        getNext(query, json["min_position"], count)
+        getNext(query, json["min_position"], count, filterFunc)
       }
     })
   })
   console.log(url)
 }
 
-function getTweets(query) {
+function getTweets(query, filterFunc) {
   console.log("getting tweets for query: " + query)
   var url = "https://twitter.com/search?q="+query+"&src=typd"
   console.log(url)
   getJson(url)(function(err, data) {
     if (data) {
+      if (filterFunc) {
+        data = data.filter(filterFunc)
+      }
       fs.writeFile('tmp/'+query+'.json', JSON.stringify(data))
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
-        getNext(query, data, 0)
+        getNext(query, data, 0, filterFunc)
       })
     }
   })
@@ -70,15 +76,17 @@ function generateQueryFromFiles() {
     })
     query = query.trim()
   }
+
   // USERS
   var users = fs.readFileSync("./users.txt", "utf-8").toString().match(/^.+$/gm)
   console.log(users)
   if (users) {
     users.forEach(function(user, index) {
+      var screenName = user.split(/[ ]+/)[0]
       if (index == 0) {
-        query += " from:" + user
+        query += " from:" + screenName
       } else {
-        query += " OR from:" + user
+        query += " OR from:" + screenName
       }
     })
     query = query.trim()
@@ -106,7 +114,6 @@ function generateQueryFromFiles() {
     query = query.trim()
   }
 
-
   // MENTIONING
   var mentioning = fs.readFileSync("./mention.txt", "utf-8").toString().match(/^.+$/gm)
   if (mentioning) {
@@ -125,5 +132,29 @@ function generateQueryFromFiles() {
   return query
 }
 
-getTweets(generateQueryFromFiles())
+function getUserIds() {
+  var users = fs.readFileSync("./users.txt", "utf-8").toString().match(/^.+$/gm)
+  var userIds = []
+  if (users) {
+    users.forEach(function(user) {
+      var userId = user.split(/[ ]+/)[1]
+      console.log(userId)
+      if (userId) {
+        userIds.push(userId)
+      }
+    })
+  }
+  console.log(userIds)
+  return userIds
+}
+
+var userIdList = getUserIds()
+var filterUserIds
+if (userIdList.length > 0) {
+  filterUserIds = function(item) {
+    return userIdList.indexOf(item["userId"]) >= 0
+  }
+}
+
+getTweets(generateQueryFromFiles(), filterUserIds)
 module.exports.getTweets = getTweets
