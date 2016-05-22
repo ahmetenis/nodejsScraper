@@ -1,3 +1,4 @@
+'use strict';
 var Xray = require("x-ray")
 var fs = require("fs")
 var request = require("request")
@@ -5,7 +6,8 @@ var x = Xray()
 
 
 function getJson(html) {
-  return x(html, "li.js-stream-item.stream-item:not(.AdaptiveSearchTimeline-beforeModule) .tweet.js-stream-tweet", [{
+  return x(html, "li.js-stream-item.stream-item:not(.AdaptiveSearchTimeline-beforeModule) \
+    .tweet.js-stream-tweet", [{
     text: "p.TweetTextSize.js-tweet-text",
     lang: "p.TweetTextSize.js-tweet-text@lang",
     screenName: "@data-screen-name",
@@ -19,17 +21,34 @@ function getJson(html) {
      > button.ProfileTweet-actionButton.js-actionButton.js-actionFavorite > div.IconTextContainer > span > span",
     timestamp: "a.tweet-timestamp span._timestamp @data-time"
   }])
-  // get mentions as well 
-  // if exists get hashtag as well
 }
 
 function getNext(query, max_pos, count, filterFunc) {
-  var url = "https://twitter.com/i/search/timeline?vertical=news&q="+query+"&src=typd&include_available_features=1&include_entities=1&max_position="+max_pos
+  var url = "https://twitter.com/i/search/timeline?vertical=news&q="+query+
+    "&src=typd&include_available_features=1&include_entities=1&max_position="+max_pos
+  console.log("making request to:\n", url)
   request(url, function(err, response, html) {
-    json = JSON.parse(html)
+    if (err) {
+      console.log(err)
+      console.log(response)
+      console.log(html)
+    }
+    console.log("response status code:", response.statusCode)
+    var json = JSON.parse(html)
     getJson(json["items_html"])(function(err, data) {
       if (filterFunc) {
         data = data.filter(filterFunc)
+      }
+      var keywords = fs.readFileSync("./keywords.txt", "utf-8").toString().match(/^.+$/gm)
+      try {
+        data.forEach(function(tweet) {
+          // TODO: write to file as kw_id, gr_id, used keyword
+          // getUsedKeywords(tweet, keywords)
+          extractHashtags(tweet)
+          extractMentions(tweet)
+        })
+      } catch(err) {
+        console.log('problem extracting data', err)
       }
       fs.appendFile('tmp/'+query+'.json', ',\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
@@ -43,7 +62,6 @@ function getNext(query, max_pos, count, filterFunc) {
       }
     })
   })
-  console.log(url)
 }
 
 function getTweets(query, filterFunc) {
@@ -55,19 +73,62 @@ function getTweets(query, filterFunc) {
       if (filterFunc) {
         data = data.filter(filterFunc)
       }
+      var count = data.length
       fs.writeFile('tmp/'+query+'.json', JSON.stringify(data))
+      fs.writeFile('tmp/hashtag_usage.txt', '')
+      fs.writeFile('tmp/mention_usage.txt')
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
-        getNext(query, data, 0, filterFunc)
+        getNext(query, data, count, filterFunc)
       })
     }
   })
 }
 
+function getUsedKeywords(tweet, keywords) {
+  var usedKeywordsString = ""
+  if (keywords) {
+    keywords.forEach(function(keyword) {
+      var regexp = new RegExp(keyword, 'i')
+      if (tweet["text"].match(regexp)) {
+        usedKeywordsString += tweet["tweetId"] + '\t' + keyword + '\n'
+      }
+    })
+    fs.appendFile("tmp/usage.txt", usedKeywordsString)
+  }
+}
+
+function extractMentions(tweet) {
+  if (tweet && tweet["text"]) {
+    var mentionedString = ""
+    var mentions = tweet["text"].match(/\@[a-z0-9]+/ig)
+    if (mentions) {
+      mentions.forEach(function(mention) {
+        mentionedString += tweet["tweetId"] + '\t' + mention + '\n'
+      })
+      fs.appendFile("tmp/mention_usage.txt", mentionedString)
+    }
+  }
+}
+
+function extractHashtags(tweet) {
+  if (tweet && tweet["text"]) {
+    var hashtagsString = ""
+    var hashtags = tweet["text"].match(/\#[a-z0-9]+/ig)
+    if (hashtags) {
+      hashtags.forEach(function(hashtag) {
+        hashtagsString = tweet["tweetId"] + '\t' + hashtag + '\n'
+      })
+    }
+    fs.appendFile("tmp/hashtag_usage.txt", hashtagsString)
+  }
+}
 
 function generateQueryFromFiles() {
+  var queryConfig = fs.readFileSync('./query_config.json', 'utf-8').toString()
+  queryConfig = JSON.parse(queryConfig)
+  
   var query = ""
-
   // KEYWORDS
   var keywords = fs.readFileSync("./keywords.txt", "utf-8").toString().match(/^.+$/gm)
   if (keywords) {
@@ -78,9 +139,9 @@ function generateQueryFromFiles() {
   }
 
   // USERS
-  var users = fs.readFileSync("./users.txt", "utf-8").toString().match(/^.+$/gm)
+  var users = queryConfig['users']
   console.log(users)
-  if (users) {
+  if (users && users.length) {
     users.forEach(function(user, index) {
       var screenName = user.split(/[ ]+/)[0]
       if (index == 0) {
@@ -93,31 +154,27 @@ function generateQueryFromFiles() {
   }
 
   // GEOCODE
-  var geoCode = fs.readFileSync("./geoCode.json", "utf-8").toString()
-  if (geoCode) {
-    geoCode = JSON.parse(geoCode)
-    var lat = geoCode["lat"]
-    var long = geoCode["long"]
-    var place = geoCode["place"]
-    var mile = geoCode["mile"]
-    var lang = geoCode["lang"]
-    mile = mile || "15"
-    if (lat && long) {
-      query += ' near:"' + lat + "," + long + '" within:' + mile + "mi"
-    } else if (place) {
-      query += ' near:"' + place + '" within:' + mile + 'mi'
-    }
-
-    if (lang) {
-      query += " lang:" + lang
-    }
-    query = query.trim()
+  var lat = queryConfig["lati"]
+  var long = queryConfig["long"]
+  var place = queryConfig["place"]
+  var mile = queryConfig["mile"]
+  var lang = queryConfig["lang"]
+  mile = mile || "15"
+  if (lat && long) {
+    query += ' near:"' + lat + "," + long + '" within:' + mile + "mi"
+  } else if (place) {
+    query += ' near:"' + place + '" within:' + mile + 'mi'
   }
 
+  if (lang) {
+    query += " lang:" + lang
+  }
+  query = query.trim()
+
   // MENTIONING
-  var mentioning = fs.readFileSync("./mention.txt", "utf-8").toString().match(/^.+$/gm)
-  if (mentioning) {
-    mentioning.forEach(function(user, index) {
+  var mentions = queryConfig['mentions']
+  if (mentions && mentions.length) {
+    mentions.forEach(function(user, index) {
       if (index == 0) {
         query += " @" + user
       } else {
@@ -127,15 +184,28 @@ function generateQueryFromFiles() {
     query = query.trim()
   }
 
+  // DATE
+  var since = queryConfig['since']
+  var until = queryConfig['until']
+  if (since) {
+    query += " since:" + since
+  }
+  if (until) {
+    query += " until:" + until
+  }
+
+  query = query.trim()
+
   console.log('query: ' + query)
   query = encodeURI(query).replace(/\:/g, '%3A').replace(/\"/g, '%22').replace(/\@/g, '%40')
   return query
 }
 
 function getUserIds() {
-  var users = fs.readFileSync("./users.txt", "utf-8").toString().match(/^.+$/gm)
+  var queryConfig = fs.readFileSync("./query_config.json", "utf-8").toString()
+  var users = JSON.parse(queryConfig)["users"]
   var userIds = []
-  if (users) {
+  if (users && users.length) {
     users.forEach(function(user) {
       var userId = user.split(/[ ]+/)[1]
       console.log(userId)
@@ -156,5 +226,5 @@ if (userIdList.length > 0) {
   }
 }
 
-getTweets(generateQueryFromFiles(), filterUserIds)
+getTweets(generateQueryFromFiles())
 module.exports.getTweets = getTweets
