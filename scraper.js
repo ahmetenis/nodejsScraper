@@ -39,18 +39,18 @@ function getNext(query, max_pos, count, filterFunc) {
       if (filterFunc) {
         data = data.filter(filterFunc)
       }
-      var keywords = fs.readFileSync("./keywords.txt", "utf-8").toString().match(/^.+$/gm)
+      // var keywordLines = fs.readFileSync("./keywordsWithIds.txt", "utf8").toString().match(/^.+$/gm)
       try {
         data.forEach(function(tweet) {
           // TODO: write to file as kw_id, gr_id, used keyword
-          // getUsedKeywords(tweet, keywords)
+          // getUsedKeywords(tweet, keywordLines)
           extractHashtags(tweet)
           extractMentions(tweet)
         })
       } catch(err) {
         console.log('problem extracting data', err)
       }
-      fs.appendFile('tmp/'+query+'.json', ',\n' + JSON.stringify(data))
+      fs.appendFile('tmp/'+query+'.json', '\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
         return
@@ -85,16 +85,19 @@ function getTweets(query, filterFunc) {
   })
 }
 
-function getUsedKeywords(tweet, keywords) {
-  var usedKeywordsString = ""
-  if (keywords) {
-    keywords.forEach(function(keyword) {
+function getUsedKeywords(tweet, keywordLines) {
+  var usedKeywordLinesString = ""
+  if (keywordLines) {
+    keywordLines.forEach(function(keywordLine) {
+      var split = keywordLine.split(/[ ]+/)
+      var keyword = split[2]
       var regexp = new RegExp(keyword, 'i')
       if (tweet["text"].match(regexp)) {
-        usedKeywordsString += tweet["tweetId"] + '\t' + keyword + '\n'
+        usedKeywordsString += tweet["tweetId"] + '\t' + 
+                      split[0] + '\t' + split[1] + '\t' + keyword + '\n'
       }
     })
-    fs.appendFile("tmp/usage.txt", usedKeywordsString)
+    fs.appendFile("tmp/keyword_usage.txt", usedKeywordsString)
   }
 }
 
@@ -125,12 +128,12 @@ function extractHashtags(tweet) {
 }
 
 function generateQueryFromFiles() {
-  var queryConfig = fs.readFileSync('./query_config.json', 'utf-8').toString()
+  var queryConfig = fs.readFileSync('./query_config.json', 'utf8').toString()
   queryConfig = JSON.parse(queryConfig)
   
   var query = ""
   // KEYWORDS
-  var keywords = fs.readFileSync("./keywords.txt", "utf-8").toString().match(/^.+$/gm)
+  var keywords = fs.readFileSync("./keywords.txt", "utf8").toString().match(/^.+$/gm)
   if (keywords) {
     keywords.forEach(function(keyword) {
       query += keyword + " "
@@ -197,12 +200,12 @@ function generateQueryFromFiles() {
   query = query.trim()
 
   console.log('query: ' + query)
-  query = encodeURI(query).replace(/\:/g, '%3A').replace(/\"/g, '%22').replace(/\@/g, '%40')
+  query = encodeURI(query).replace(/\:/g, '%3A').replace(/\@/g, '%40')
   return query
 }
 
 function getUserIds() {
-  var queryConfig = fs.readFileSync("./query_config.json", "utf-8").toString()
+  var queryConfig = fs.readFileSync("./query_config.json", "utf8").toString()
   var users = JSON.parse(queryConfig)["users"]
   var userIds = []
   if (users && users.length) {
