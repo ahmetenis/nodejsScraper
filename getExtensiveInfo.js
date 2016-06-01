@@ -7,7 +7,8 @@ var twitterClient = require('./twitterClient')
 var child_process = require('child_process')
 
 var workers = []
-const keysToWrite = ['timestamp', 'tweetId', 'userId', 'userName', 'retweetCount', 'favoriteCount', 'source', 'latitude', 'longitude', 'text']
+const keysToWrite = ['timestamp', 'tweetId', 'userId', 'userName', 'retweetCount', 
+                'favoriteCount', 'source', 'latitude', 'longitude', 'text', 'is_retweet']
 const SEPARATOR = 'Â§'
 
 function prepareWorkers() {
@@ -46,6 +47,13 @@ function getAdditionalInfoAboutTweets(path, start, end) {
       }))
         .then(function(tweets) {
           tweets.forEach(function(tweet) {
+            // var keywordLines = fs.readFileSync("./keywordsWithIds.txt", "utf8").toString().match(/^.+$/gm)
+            try {
+              // getUsedKeywords(tweet, keywordLines)
+              extractEntities(tweet)
+            } catch(err) {
+              console.log('problem extracting data', err)
+            }
             var coordinates = tweet['coordinates']
             if (coordinates) {
               dict[tweet['id_str']]['latitude'] = coordinates.split(',')[0]
@@ -55,6 +63,7 @@ function getAdditionalInfoAboutTweets(path, start, end) {
               dict[tweet['id_str']]['longitude'] = null
             }
             dict[tweet['id_str']]['source'] = tweet['source']
+            dict[tweet['id_str']]['is_retweet'] = tweet['retweeted_status'] || false
           })
           count += 1
           if (count == 1) {
@@ -87,15 +96,56 @@ function formatAndWriteToFile(path, dict) {
   var formattedString = ''
   for (var id in dict) {
     var tweet = dict[id]
-    console.log(id)
     keysToWrite.forEach( (key,index) => {
       formattedString += tweet[key] + SEPARATOR
     })
 
-    formattedString = formattedString.slice(0,-1) + '\n'
+    formattedString = formattedString.slice(0,-2) + '\n'
   }
 
   fs.appendFile(path, formattedString)
+}
+
+function getUsedKeywords(tweet, keywordLines) {
+  var usedKeywordLinesString = ""
+  if (keywordLines) {
+    keywordLines.forEach(function(keywordLine) {
+      var split = keywordLine.split(/[ ]+/)
+      var keyword = split[2]
+      var regexp = new RegExp(keyword, 'i')
+      if (tweet["text"].match(regexp)) {
+        usedKeywordsString += tweet["tweetId"] + '\t' + tweet["userId"] + '\t' +
+                      split[0] + '\t' + split[1] + '\t' + keyword + '\n'
+      }
+    })
+    fs.appendFile("tmp/keyword_usage.txt", usedKeywordsString)
+  }
+}
+
+function extractEntities(tweet) {
+  var hashtags = tweet['entities']['hashtags']
+  var urls = tweet['entities']['urls']
+  var user_mentions = tweet['entities']['user_mentions']
+  var hashtagsString = ''
+  var urlsString = ''
+  var userMentionsString = ''
+  
+  hashtags.forEach(hashtag => {
+    hashtagsString = tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + hashtag['text'] + '\n'
+  })
+
+  urls.forEach(url => {
+    urlsString = tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + url['display_url'] + '\n'
+  })
+
+  user_mentions.forEach(user_mention => {
+    userMentionsString = tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
+                          user_mention['screen_name'] + '\t' + user_mention['id_str'] + '\n'
+  })
+
+  fs.appendFile('tmp/hashtag_usage.txt', hashtagsString)
+  fs.appendFile('tmp/url_usage.txt', urlsString)
+  fs.appendFile('tmp/mention_usage.txt', userMentionsString)
 }
 
 getAdditionalInfoAboutTweets('./tmp/london.json', 0)

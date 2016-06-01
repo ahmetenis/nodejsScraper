@@ -39,17 +39,6 @@ function getNext(query, max_pos, count, filterFunc) {
       if (filterFunc) {
         data = data.filter(filterFunc)
       }
-      // var keywordLines = fs.readFileSync("./keywordsWithIds.txt", "utf8").toString().match(/^.+$/gm)
-      try {
-        data.forEach(function(tweet) {
-          // TODO: write to file as kw_id, gr_id, used keyword
-          // getUsedKeywords(tweet, keywordLines)
-          extractHashtags(tweet)
-          extractMentions(tweet)
-        })
-      } catch(err) {
-        console.log('problem extracting data', err)
-      }
       fs.appendFile('tmp/'+query+'.json', '\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
@@ -75,8 +64,6 @@ function getTweets(query, filterFunc) {
       }
       var count = data.length
       fs.writeFile('tmp/'+query+'.json', JSON.stringify(data))
-      fs.writeFile('tmp/hashtag_usage.txt', '')
-      fs.writeFile('tmp/mention_usage.txt')
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
         getNext(query, data, count, filterFunc)
@@ -85,49 +72,7 @@ function getTweets(query, filterFunc) {
   })
 }
 
-function getUsedKeywords(tweet, keywordLines) {
-  var usedKeywordLinesString = ""
-  if (keywordLines) {
-    keywordLines.forEach(function(keywordLine) {
-      var split = keywordLine.split(/[ ]+/)
-      var keyword = split[2]
-      var regexp = new RegExp(keyword, 'i')
-      if (tweet["text"].match(regexp)) {
-        usedKeywordsString += tweet["tweetId"] + '\t' + 
-                      split[0] + '\t' + split[1] + '\t' + keyword + '\n'
-      }
-    })
-    fs.appendFile("tmp/keyword_usage.txt", usedKeywordsString)
-  }
-}
-
-function extractMentions(tweet) {
-  if (tweet && tweet["text"]) {
-    var mentionedString = ""
-    var mentions = tweet["text"].match(/\@[a-z0-9]+/ig)
-    if (mentions) {
-      mentions.forEach(function(mention) {
-        mentionedString += tweet["tweetId"] + '\t' + mention + '\n'
-      })
-      fs.appendFile("tmp/mention_usage.txt", mentionedString)
-    }
-  }
-}
-
-function extractHashtags(tweet) {
-  if (tweet && tweet["text"]) {
-    var hashtagsString = ""
-    var hashtags = tweet["text"].match(/\#[a-z0-9]+/ig)
-    if (hashtags) {
-      hashtags.forEach(function(hashtag) {
-        hashtagsString = tweet["tweetId"] + '\t' + hashtag + '\n'
-      })
-    }
-    fs.appendFile("tmp/hashtag_usage.txt", hashtagsString)
-  }
-}
-
-function generateQueryFromFiles() {
+function generateQuery() {
   var queryConfig = fs.readFileSync('./query_config.json', 'utf8').toString()
   queryConfig = JSON.parse(queryConfig)
   
@@ -229,5 +174,5 @@ if (userIdList.length > 0) {
   }
 }
 
-getTweets(generateQueryFromFiles())
+getTweets(generateQuery())
 module.exports.getTweets = getTweets
