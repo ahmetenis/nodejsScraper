@@ -5,6 +5,7 @@ var readline = require('readline')
 var stream = require('stream')
 var twitterClient = require('./twitterClient')
 var child_process = require('child_process')
+var scraper = require('./scraper')
 
 var workers = []
 const keysToWrite = ['timestamp', 'tweetId', 'userId', 'userName', 'retweetCount', 
@@ -123,29 +124,47 @@ function getUsedKeywords(tweet, keywordLines) {
 }
 
 function extractEntities(tweet) {
-  var hashtags = tweet['entities']['hashtags']
-  var urls = tweet['entities']['urls']
-  var user_mentions = tweet['entities']['user_mentions']
+  var hashtags = tweet['entities']['hashtags'] || []
+  var urls = tweet['entities']['urls'] || []
+  var user_mentions = tweet['entities']['user_mentions'] || []
+  var mediaEntities = tweet['entities']['media'] || []
   var hashtagsString = ''
   var urlsString = ''
   var userMentionsString = ''
+  var mediaString = ''
   
   hashtags.forEach(hashtag => {
-    hashtagsString = tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + hashtag['text'] + '\n'
+    hashtagsString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + hashtag['text'] + '\n'
   })
 
   urls.forEach(url => {
-    urlsString = tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + url['display_url'] + '\n'
+    urlsString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + url['display_url'] + '\n'
   })
 
   user_mentions.forEach(user_mention => {
-    userMentionsString = tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
+    userMentionsString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
                           user_mention['screen_name'] + '\t' + user_mention['id_str'] + '\n'
   })
+
+  mediaEntities.forEach(mediaEntity => {
+    mediaString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
+                    mediaEntity["display_url"] + "\n"
+  })
+
+
 
   fs.appendFile('tmp/hashtag_usage.txt', hashtagsString)
   fs.appendFile('tmp/url_usage.txt', urlsString)
   fs.appendFile('tmp/mention_usage.txt', userMentionsString)
+  fs.appendFile('tmp/media_usage.txt', mediaString)
 }
 
-getAdditionalInfoAboutTweets('./tmp/london.json', 0)
+function main() {
+  var query = scraper.generateQuery();
+  getAdditionalInfoAboutTweets('./tmp/' + query.substring(0,15) + '.json', 0)  
+}
+
+if (require.main === module) {
+  main();
+}
+

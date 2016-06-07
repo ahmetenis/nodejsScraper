@@ -39,7 +39,7 @@ function getNext(query, max_pos, count, filterFunc) {
       if (filterFunc) {
         data = data.filter(filterFunc)
       }
-      fs.appendFile('tmp/'+query+'.json', '\n' + JSON.stringify(data))
+      fs.appendFile('tmp/' + query.substring(0,15) + '.json', '\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
         return
@@ -63,7 +63,7 @@ function getTweets(query, filterFunc) {
         data = data.filter(filterFunc)
       }
       var count = data.length
-      fs.writeFile('tmp/'+query+'.json', JSON.stringify(data))
+      fs.writeFile('tmp/' + query.substring(0,15) + '.json', JSON.stringify(data))
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
         getNext(query, data, count, filterFunc)
@@ -174,5 +174,15 @@ if (userIdList.length > 0) {
   }
 }
 
-getTweets(generateQuery())
+
+var main = function() {
+  getTweets(generateQuery());
+}
+
+if (require.main === module) {
+  main();
+}
+
 module.exports.getTweets = getTweets
+module.exports.generateQuery = generateQuery
+
