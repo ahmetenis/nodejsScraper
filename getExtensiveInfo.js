@@ -68,11 +68,11 @@ function getAdditionalInfoAboutTweets(path, start, end) {
           })
           count += 1
           if (count == 1) {
-            fs.writeFileSync(path+'.extensive', keysToWrite.join(SEPARATOR) + '\n')
+            fs.writeFileSync(path+'.formatted', keysToWrite.join(SEPARATOR) + '\n')
           }
 
           try {
-            formatAndWriteToFile(path+".extensive", dict) 
+            formatAndWriteToFile(path+'.formatted', dict) 
           } catch(e) {
             console.error(e)
           }
@@ -94,17 +94,18 @@ function getAdditionalInfoAboutTweets(path, start, end) {
 }
 
 function formatAndWriteToFile(path, dict) {
-  var formattedString = ''
+  var result = ""
   for (var id in dict) {
+    var formattedString = ''
     var tweet = dict[id]
     keysToWrite.forEach( (key,index) => {
       formattedString += tweet[key] + SEPARATOR
     })
 
-    formattedString = formattedString.slice(0,-2) + '\n'
+    result += formattedString.slice(0,-2).replace(/[\n\r]/g, ' ') + '\n'
   }
 
-  fs.appendFile(path, formattedString)
+  fs.appendFile(path, result)
 }
 
 function getUsedKeywords(tweet, keywordLines) {

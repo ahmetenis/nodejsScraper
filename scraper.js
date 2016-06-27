@@ -15,6 +15,8 @@ function getJson(html) {
     urlPath: "@data-permalink-path",
     userName: "@data-name",
     userId: "@data-user-id",
+    retweetId: "@data-retweet-id",
+    retweeter: "@data-retweeter",
     retweetCount: "div.stream-item-footer > div.ProfileTweet-actionList.js-actions > div.ProfileTweet-action.ProfileTweet-action--retweet.js-toggleState\
      > button.ProfileTweet-actionButton.js-actionButton.js-actionRetweet > div.IconTextContainer > span > span",
     favoriteCount: "div.stream-item-footer > div.ProfileTweet-actionList.js-actions > div.ProfileTweet-action.ProfileTweet-action--favorite.js-toggleState\
@@ -87,7 +89,7 @@ function generateQuery() {
   }
 
   // USERS
-  var users = queryConfig['users']
+  var users = fs.readFileSync("users.txt", "utf8").toString().match(/^.+$/gm)
   console.log(users)
   if (users && users.length) {
     users.forEach(function(user, index) {
@@ -143,15 +145,19 @@ function generateQuery() {
   }
 
   query = query.trim()
-
+  
   console.log('query: ' + query)
   query = encodeURI(query).replace(/\:/g, '%3A').replace(/\@/g, '%40')
   return query
 }
 
+function getUserTimeline(screenName) {
+
+}
+
 function getUserIds() {
   var queryConfig = fs.readFileSync("./query_config.json", "utf8").toString()
-  var users = JSON.parse(queryConfig)["users"]
+  var users = fs.readFileSync("users.txt", "utf8").toString().match(/^.+$/gm)
   var userIds = []
   if (users && users.length) {
     users.forEach(function(user) {
@@ -185,4 +191,5 @@ if (require.main === module) {
 
 module.exports.getTweets = getTweets
 module.exports.generateQuery = generateQuery
+module.exports.getJson = getJson
 
