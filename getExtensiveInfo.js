@@ -4,7 +4,6 @@ var fs = require('fs')
 var readline = require('readline')
 var stream = require('stream')
 var twitterClient = require('./twitterClient')
-var child_process = require('child_process')
 var scraper = require('./scraper')
 
 var workers = []
@@ -52,6 +51,7 @@ function getAdditionalInfoAboutTweets(path, start, end) {
             try {
               // getUsedKeywords(tweet, keywordLines)
               extractEntities(tweet)
+              getHatTips(tweet)
             } catch(err) {
               console.log('problem extracting data', err)
             }
@@ -124,6 +124,34 @@ function getUsedKeywords(tweet, keywordLines) {
   }
 }
 
+function getHatTips(tweet) {
+  console.log(tweet.text)
+  var hattips = tweet.text.match(/(HT|via|by)[ :]?@[a-z0-9]+/ig)
+  if (hattips) {
+    console.log(hattips)
+    var userMentions = tweet.entities.user_mentions
+    if (userMentions.length) {
+      var urls = tweet.entities.urls || []
+      var media = tweet.entities.media || []
+
+      var mentions = ''
+      userMentions.forEach(mention => {
+        mentions += '@' + mention.screen_name
+      })
+      var links = ''
+      urls.forEach(item => {
+        links +=  item.url + ' '
+      })
+      media.forEach(item => {
+        links += item.url + ' '
+      })
+      links = links.trim()
+      var hattipString = tweet.id + '\t' + mentions + '\t' + links + '\n'
+      fs.appendFile('tmp/hatTips.txt', hattipString)
+    }
+  }
+}
+
 function extractEntities(tweet) {
   var hashtags = tweet['entities']['hashtags'] || []
   var urls = tweet['entities']['urls'] || []
@@ -149,10 +177,8 @@ function extractEntities(tweet) {
 
   mediaEntities.forEach(mediaEntity => {
     mediaString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
-                    mediaEntity["display_url"] + "\n"
+                    mediaEntity["display_url"] + '\n'
   })
-
-
 
   fs.appendFile('tmp/hashtag_usage.txt', hashtagsString)
   fs.appendFile('tmp/url_usage.txt', urlsString)

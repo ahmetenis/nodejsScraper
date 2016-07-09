@@ -46,7 +46,6 @@ function getNext(screenName, maxPos, count) {
 
   scraper.getJson(url)(function(err, data) {
     fs.appendFile(screenName + "_timeline.json", JSON.stringify(data));
-
   });
 }
 
