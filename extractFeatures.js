@@ -52,6 +52,9 @@ function getAdditionalInfoAboutTweets(path, start, end) {
               // getUsedKeywords(tweet, keywordLines)
               extractEntities(tweet)
               getHatTips(tweet)
+              getDirectMessageRequests(tweet)
+              getModifiedRT(tweet)
+              getReply(tweet)
             } catch(err) {
               console.log('problem extracting data', err)
             }
@@ -64,7 +67,7 @@ function getAdditionalInfoAboutTweets(path, start, end) {
               dict[tweet['id_str']]['longitude'] = null
             }
             dict[tweet['id_str']]['source'] = tweet['source']
-            dict[tweet['id_str']]['is_retweet'] = tweet['retweeted_status'] || false
+            dict[tweet['id_str']]['is_retweet'] = tweet['retweeted'] || false
           })
           count += 1
           if (count == 1) {
@@ -129,15 +132,10 @@ function getHatTips(tweet) {
   var hattips = tweet.text.match(/(HT|via|by)[ :]?@[a-z0-9]+/ig)
   if (hattips) {
     console.log(hattips)
-    var userMentions = tweet.entities.user_mentions
-    if (userMentions.length) {
+    var mentions = getUserMentionsString(tweet)
+    if (mentions) {
       var urls = tweet.entities.urls || []
       var media = tweet.entities.media || []
-
-      var mentions = ''
-      userMentions.forEach(mention => {
-        mentions += '@' + mention.screen_name
-      })
       var links = ''
       urls.forEach(item => {
         links +=  item.url + ' '
@@ -146,9 +144,54 @@ function getHatTips(tweet) {
         links += item.url + ' '
       })
       links = links.trim()
-      var hattipString = tweet.id + '\t' + mentions + '\t' + links + '\n'
+      var hattipString = tweet['id_str'] + '\t' + mentions + '\t' + links + '\n'
       fs.appendFile('tmp/hatTips.txt', hattipString)
     }
+  }
+}
+
+function getDirectMessageRequests(tweet) {
+  var dmRequest = tweet.text.match(/DM[\' ]/ig)
+
+  if (dmRequest) {
+    var mentions = getUserMentionsString(tweet)
+    if (mentions) {
+      var dmString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + mentions + '\n'
+      fs.appendFile('tmp/DMRequests.txt', dmString)
+    }
+  }
+}
+
+function getModifiedRT(tweet) {
+  var modifiedRT = tweet.text.match(/RT[ \:\-]@[a-z0-9]+/ig)
+  if (modifiedRT) {
+    console.log(tweet.text)
+    var mention = tweet['entities']['user_mentions'][0]['screen_name']
+    if (mention) {
+      var retweetString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + mention + '\n'
+      // change false to true for the formatted file
+      tweet['retweeted'] = true
+      fs.appendFile('tmp/RT.txt', retweetString)
+    }
+  }
+}
+
+function getUserMentionsString(tweet) {
+  var userMentions = tweet.entities.user_mentions
+  if (userMentions.length) {
+    var mentions = ''
+    userMentions.forEach(mention => {
+      mentions += '|' + mention['id_str']
+    })
+    return mentions.replace('|', '')
+  }
+}
+
+function getReply(tweet) {
+  if (tweet['in_reply_to_user_id']) {
+    var replyString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + 
+                      tweet['in_reply_to_user_id'] + '\n'
+    fs.appendFile('Reply.txt', replyString)
   }
 }
 
@@ -163,20 +206,20 @@ function extractEntities(tweet) {
   var mediaString = ''
   
   hashtags.forEach(hashtag => {
-    hashtagsString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + hashtag['text'] + '\n'
+    hashtagsString += tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + hashtag['text'] + '\n'
   })
 
   urls.forEach(url => {
-    urlsString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + url['display_url'] + '\n'
+    urlsString += tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + url['display_url'] + '\n'
   })
 
   user_mentions.forEach(user_mention => {
-    userMentionsString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
+    userMentionsString += tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + 
                           user_mention['screen_name'] + '\t' + user_mention['id_str'] + '\n'
   })
 
   mediaEntities.forEach(mediaEntity => {
-    mediaString += tweet["id_str"] + '\t' + tweet["user"]["id_str"] + '\t' + 
+    mediaString += tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + 
                     mediaEntity["display_url"] + '\n'
   })
 
