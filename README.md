@@ -1,6 +1,8 @@
 # nodejsScraper
 
-using query_config.json and keywords.txt make searches on twitter
+scraper.js - using query_config.json, users.txt and keywords.txt make searches on twitter
+
+extractFeatures.js - generate txt files for extracted features
 
 # query_config.json example usage
 all fields are optional
