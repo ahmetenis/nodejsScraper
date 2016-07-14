@@ -8,7 +8,7 @@ var scraper = require('./scraper')
 
 var workers = []
 const keysToWrite = ['timestamp', 'tweetId', 'userId', 'userName', 'retweetCount', 
-                'favoriteCount', 'source', 'latitude', 'longitude', 'text', 'is_retweet']
+                'favoriteCount', 'source', 'latitude', 'longitude', 'text', 'is_retweet', 'is_reply', 'contains_hattip']
 const SEPARATOR = 'Â§'
 
 function prepareWorkers() {
@@ -40,47 +40,54 @@ function getAdditionalInfoAboutTweets(path, start, end) {
     var endReached = false || (end && index >= end)
     var dict = {}
 
-    if (start <= index) {
-      twitterClient.lookupTweets(JSON.parse(line).map( tweet => {
-        dict[tweet['tweetId']] = tweet
-        return tweet["tweetId"]
-      }))
-        .then(function(tweets) {
-          tweets.forEach(function(tweet) {
-            // var keywordLines = fs.readFileSync("./keywordsWithIds.txt", "utf8").toString().match(/^.+$/gm)
-            try {
-              // getUsedKeywords(tweet, keywordLines)
-              extractEntities(tweet)
-              getHatTips(tweet)
-              getDirectMessageRequests(tweet)
-              getModifiedRT(tweet)
-              getReply(tweet)
-            } catch(err) {
-              console.log('problem extracting data', err)
+    try {
+      if (start <= index) {
+        twitterClient.lookupTweets(JSON.parse(line).map( tweet => {
+          dict[tweet['tweetId']] = tweet
+          return tweet["tweetId"]
+        }))
+          .then(function(tweets) {
+            tweets.forEach(function(tweet) {
+              // var keywordLines = fs.readFileSync("./keywordsWithIds.txt", "utf8").toString().match(/^.+$/gm)
+              try {
+                // getUsedKeywords(tweet, keywordLines)
+                extractEntities(tweet)
+                getHatTips(tweet)
+                getDirectMessageRequests(tweet)
+                getRTUsage(tweet)
+                getReply(tweet)
+                getFavCount(tweet)
+              } catch(err) {
+                console.log('problem extracting data', err)
+              }
+              var coordinates = tweet['coordinates']
+              if (coordinates) {
+                dict[tweet['id_str']]['latitude'] = coordinates.split(',')[0]
+                dict[tweet['id_str']]['longitude'] = coordinates.split(',')[1]
+              } else {
+                dict[tweet['id_str']]['latitude'] = null
+                dict[tweet['id_str']]['longitude'] = null
+              }
+              dict[tweet['id_str']]['source'] = tweet['source']
+              dict[tweet['id_str']]['is_retweet'] = tweet['retweeted'] || '0'
+              dict[tweet['id_str']]['is_reply'] = Boolean(tweet['in_reply_to_user_id']) 
+              dict[tweet['id_str']]['contains_hattip'] = tweet['contains_hattip'] || false
+            })
+            count += 1
+            if (count == 1) {
+              fs.writeFileSync(path.replace('.json','') + '.formatted', keysToWrite.join(SEPARATOR) + '\n')
             }
-            var coordinates = tweet['coordinates']
-            if (coordinates) {
-              dict[tweet['id_str']]['latitude'] = coordinates.split(',')[0]
-              dict[tweet['id_str']]['longitude'] = coordinates.split(',')[1]
-            } else {
-              dict[tweet['id_str']]['latitude'] = null
-              dict[tweet['id_str']]['longitude'] = null
-            }
-            dict[tweet['id_str']]['source'] = tweet['source']
-            dict[tweet['id_str']]['is_retweet'] = tweet['retweeted'] || false
-          })
-          count += 1
-          if (count == 1) {
-            fs.writeFileSync(path+'.formatted', keysToWrite.join(SEPARATOR) + '\n')
-          }
 
-          try {
-            formatAndWriteToFile(path+'.formatted', dict) 
-          } catch(e) {
-            console.error(e)
-          }
-          console.log("DONE:",count) 
-        });
+            try {
+              formatAndWriteToFile(path.replace('.json','') + '.formatted', dict) 
+            } catch(e) {
+              console.error(e)
+            }
+            console.log("DONE:",count) 
+          });
+      }
+    } catch(e) {
+      console.log(e)
     }
     
     if (endReached) {
@@ -144,8 +151,9 @@ function getHatTips(tweet) {
         links += item.url + ' '
       })
       links = links.trim()
+      tweet['contains_hattip'] = true
       var hattipString = tweet['id_str'] + '\t' + mentions + '\t' + links + '\n'
-      fs.appendFile('tmp/hatTips.txt', hattipString)
+      fs.appendFile('tmp/hattip_usage.txt', hattipString)
     }
   }
 }
@@ -157,22 +165,35 @@ function getDirectMessageRequests(tweet) {
     var mentions = getUserMentionsString(tweet)
     if (mentions) {
       var dmString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + mentions + '\n'
-      fs.appendFile('tmp/DMRequests.txt', dmString)
+      fs.appendFile('tmp/DM_usage.txt', dmString)
     }
   }
 }
 
-function getModifiedRT(tweet) {
+function getRTUsage(tweet) {
+  // getting manual RTs but retweeted tweet's id is not available   
   var modifiedRT = tweet.text.match(/RT[ \:\-]@[a-z0-9]+/ig)
   if (modifiedRT) {
     console.log(tweet.text)
     var mention = tweet['entities']['user_mentions'][0]['screen_name']
     if (mention) {
-      var retweetString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + mention + '\n'
-      // change false to true for the formatted file
-      tweet['retweeted'] = true
-      fs.appendFile('tmp/RT.txt', retweetString)
+      tweet['retweeted'] = "1"
     }
+  }
+
+  if (tweet.quoted_status) {
+    var retweetString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' +
+                        tweet['quoted_status']['id_str'] + '\n'
+    tweet['retweeted'] = "2"
+    fs.appendFile('tmp/RT_usage.txt', retweetString)
+  }
+}
+
+function getFavCount(tweet) {
+  var favCount = tweet['favorite_count']
+  if (favCount) {
+    var favString = tweet['id_str'] + '\t' + tweet['favorite_count'] + '\n'
+    fs.appendFile('tmp/favorite_count.txt', favString)
   }
 }
 
@@ -191,7 +212,7 @@ function getReply(tweet) {
   if (tweet['in_reply_to_user_id']) {
     var replyString = tweet['id_str'] + '\t' + tweet['user']['id_str'] + '\t' + 
                       tweet['in_reply_to_user_id'] + '\n'
-    fs.appendFile('Reply.txt', replyString)
+    fs.appendFile('tmp/reply_usage.txt', replyString)
   }
 }
 
@@ -231,10 +252,9 @@ function extractEntities(tweet) {
 
 function main() {
   var query = scraper.generateQuery();
-  getAdditionalInfoAboutTweets('./tmp/' + query.substring(0,15) + '.json', 0)  
+  getAdditionalInfoAboutTweets('./tmp/' + query.replace(/%[0-9a-z]{2}/ig, ' ') + '.json', 0)  
 }
 
 if (require.main === module) {
   main();
 }
-

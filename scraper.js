@@ -21,6 +21,8 @@ function getJson(html) {
      > button.ProfileTweet-actionButton.js-actionButton.js-actionRetweet > div.IconTextContainer > span > span",
     favoriteCount: "div.stream-item-footer > div.ProfileTweet-actionList.js-actions > div.ProfileTweet-action.ProfileTweet-action--favorite.js-toggleState\
      > button.ProfileTweet-actionButton.js-actionButton.js-actionFavorite > div.IconTextContainer > span > span",
+    quotedTweetId: "div.QuoteTweet-container > div.QuoteTweet-innerContainer@data-item-id",
+    quotedUserId: "div.QuoteTweet-container > div.QuoteTweet-innerContainer@data-user-id",
     timestamp: "a.tweet-timestamp span._timestamp @data-time"
   }])
 }
@@ -41,14 +43,14 @@ function getNext(query, max_pos, count, filterFunc) {
       if (filterFunc) {
         data = data.filter(filterFunc)
       }
-      fs.appendFile('tmp/' + query.substring(0,15) + '.json', '\n' + JSON.stringify(data))
+      fs.appendFile('tmp/' + query.replace(/\%[0-9a-z]{2}/ig, ' ') + '.json', '\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
         return
       } 
       count += json.new_latent_count
       console.log("TOTAL COUNT: ", count)
-      if (count < 50000) {
+      if (count < 500000) {
         getNext(query, json["min_position"], count, filterFunc)
       }
     })
@@ -65,7 +67,7 @@ function getTweets(query, filterFunc) {
         data = data.filter(filterFunc)
       }
       var count = data.length
-      fs.writeFile('tmp/' + query.substring(0,15) + '.json', JSON.stringify(data))
+      fs.writeFile('tmp/' + query.replace(/%[0-9a-z]{2}/ig, ' ') + '.json', JSON.stringify(data))
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
         getNext(query, data, count, filterFunc)
@@ -149,10 +151,6 @@ function generateQuery() {
   console.log('query: ' + query)
   query = encodeURI(query).replace(/\:/g, '%3A').replace(/\@/g, '%40')
   return query
-}
-
-function getUserTimeline(screenName) {
-
 }
 
 function getUserIds() {

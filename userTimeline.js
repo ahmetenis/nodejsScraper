@@ -50,7 +50,6 @@ function getNext(screenName, maxPos, count) {
 }
 
 function main() {
-  // getUserTimeline("srkninci");
   var users = fs.readFileSync("users.txt", "utf8").match(/^.+$/gm);
   users.forEach(function(user) {
     getUserTimeline(user);
