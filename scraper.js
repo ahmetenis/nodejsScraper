@@ -180,6 +180,11 @@ if (userIdList.length > 0) {
 
 
 var main = function() {
+  fs.stat('tmp', function(err, stats) {
+    if (err) {
+      fs.mkdirSync('tmp')
+    }
+  })
   getTweets(generateQuery());
 }
 

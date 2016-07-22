@@ -2,4 +2,7 @@ tmp/
 node_modules
 *.json
 !package.json
+!query_config.json
 *.txt
+!keywords.txt
+!users.txt
