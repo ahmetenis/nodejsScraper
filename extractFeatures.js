@@ -252,7 +252,7 @@ function extractEntities(tweet) {
 
 function main() {
   var query = scraper.generateQuery();
-  getAdditionalInfoAboutTweets('./tmp/' + query.replace(/%[0-9a-z]{2}/ig, ' ') + '.json', 0)  
+  getAdditionalInfoAboutTweets('./tmp/' + query.replace(/\%[0-9a-z]{2}/ig, ' ').substring(0,15) + '.json', 0)  
 }
 
 if (require.main === module) {

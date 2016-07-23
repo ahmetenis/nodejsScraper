@@ -2,7 +2,6 @@
 var Xray = require("x-ray")
 var fs = require("fs")
 var request = require("request")
-var process = require
 var x = Xray()
 var q = require("q")
 
