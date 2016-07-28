@@ -5,6 +5,13 @@ var fs = require("fs")
 var q = require("q")
 
 var twitterClient = function() {
+  try {
+    fs.statSync('./credentials.json')
+  } catch(e) {
+    console.error('You need to provide a credentials.json file to make requests ' + 
+    'to Twitter APIs')
+    process.exit(1)
+  }
   var credentials = fs.readFileSync("./credentials.json", "utf-8").toString()
   credentials = JSON.parse(credentials)
   var clients = []

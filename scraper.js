@@ -36,6 +36,8 @@ function getNext(query, max_pos, count, filterFunc) {
       console.log(err)
       console.log(response)
       console.log(html)
+      getNext(query, max_pos, count, filterFunc)
+      return
     }
     console.log("response status code:", response.statusCode)
     var json = JSON.parse(html)
@@ -43,7 +45,7 @@ function getNext(query, max_pos, count, filterFunc) {
       if (filterFunc) {
         data = data.filter(filterFunc)
       }
-      fs.appendFile('tmp/' + query.replace(/\%[0-9a-z]{2}/ig, ' ').substring(0,15) + '.json', '\n' + JSON.stringify(data))
+      fs.appendFile('tmp/' + decodeURI(query).substring(0,15) + '.json', '\n' + JSON.stringify(data))
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
         return
@@ -67,7 +69,9 @@ function getTweets(query, filterFunc) {
         data = data.filter(filterFunc)
       }
       var count = data.length
-      fs.writeFile('tmp/' + query.replace(/\%[0-9a-z]{2}/ig, ' ').substring(0,15) + '.json', JSON.stringify(data))
+      var path = 'tmp/' + decodeURI(query).substring(0,15) + '.json'
+      console.log("writing tweets to file %s", path)
+      fs.writeFile(path, JSON.stringify(data))
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
         getNext(query, data, count, filterFunc)
