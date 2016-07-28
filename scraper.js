@@ -149,7 +149,9 @@ function generateQuery() {
   query = query.trim()
   
   console.log('query: ' + query)
-  query = encodeURI(query).replace(/\:/g, '%3A').replace(/\@/g, '%40')
+  query = encodeURIComponent(query)
+  // (/\:/g, '%3A').replace(/\@/g, '%40')
+  //         .replace(/ /g, '%20').replace(/\#/g, '%23')
   return query
 }
 

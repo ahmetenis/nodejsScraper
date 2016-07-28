@@ -1,0 +1,5 @@
+all of these words
+"this exact phrase"
+any OR of OR these OR words
+-none -of -these -words
+#THISHASHTAG

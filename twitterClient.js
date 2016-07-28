@@ -96,6 +96,7 @@ var twitterClient = function() {
           }
         } else {
           deferred.resolve(tweets)
+          console.log("REMAINING RATE LIMITS:")
           console.log(clients.map( client => client["quota"]))
         }
       })      
