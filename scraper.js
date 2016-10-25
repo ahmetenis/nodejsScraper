@@ -2,8 +2,13 @@
 var Xray = require("x-ray")
 var fs = require("fs")
 var request = require("request")
+var json2csv = require("json2csv");
+
+var generateQuery = require('./generateQuery').generateQuery;
+
 var x = Xray()
 
+const CSVCOLUMNS = ['screenName', 'retweetCount', 'favoriteCount', 'timestamp', 'text'];
 
 function getJson(html) {
   return x(html, "li.js-stream-item.stream-item:not(.AdaptiveSearchTimeline-beforeModule) \
@@ -46,6 +51,8 @@ function getNext(query, max_pos, count, filterFunc) {
         data = data.filter(filterFunc)
       }
       fs.appendFile('tmp/' + decodeURI(query).substring(0,15) + '.json', '\n' + JSON.stringify(data))
+
+      fs.appendFile('tmp/' + decodeURI(query).substring(0,15) + '.csv', '\n' + json2csv({data: data, fields: CSVCOLUMNS, hasCSVColumnTitle: false}));
       if (json.new_latent_count == 0) {
         console.log("No more tweets\nTOTAL COUNT:", count)
         return
@@ -69,94 +76,30 @@ function getTweets(query, filterFunc) {
         data = data.filter(filterFunc)
       }
       var count = data.length
-      var path = 'tmp/' + decodeURI(query).substring(0,15) + '.json'
+      var path = 'tmp/' + decodeURI(query).substring(0,15)
       console.log("writing tweets to file %s", path)
-      fs.writeFile(path, JSON.stringify(data))
+      fs.writeFile(path + '.json', JSON.stringify(data))
+      var CSVCOLUMNS = ['screenName', 'retweetCount', 'favoriteCount', 'timestamp', 'text'];
+      var csvStr = '';
+
+      try {
+        var result = json2csv({ data: data, fields: CSVCOLUMNS });
+        console.log(result);
+        fs.writeFile(path+'.csv', result);
+      } catch (err) {
+        // Errors are thrown for bad options, or if the data is empty and no fields are provided. 
+        // Be sure to provide fields if it is possible that your data array will be empty. 
+        console.error(err);
+      }
+      fs.writeFile(path+'.csv', csvStr);
+
+
       x(url, 'div.stream-container@data-min-position')(function(err, data) {
         console.log(data)
         getNext(query, data, count, filterFunc)
       })
     }
   })
-}
-
-function generateQuery() {
-  var queryConfig = fs.readFileSync('./query_config.json', 'utf8').toString()
-  queryConfig = JSON.parse(queryConfig)
-  
-  var query = ""
-  // KEYWORDS
-  var keywords = fs.readFileSync("./keywords.txt", "utf8").toString().match(/^.+$/gm)
-  if (keywords) {
-    keywords.forEach(function(keyword) {
-      query += keyword + " "
-    })
-    query = query.trim()
-  }
-
-  // USERS
-  var users = fs.readFileSync("users.txt", "utf8").toString().match(/^.+$/gm)
-  console.log(users)
-  if (users && users.length) {
-    users.forEach(function(user, index) {
-      var screenName = user.split(/[ ]+/)[0]
-      if (index == 0) {
-        query += " from:" + screenName
-      } else {
-        query += " OR from:" + screenName
-      }
-    })
-    query = query.trim()
-  }
-
-  // GEOCODE
-  var lat = queryConfig["lati"]
-  var long = queryConfig["long"]
-  var place = queryConfig["place"]
-  var mile = queryConfig["mile"]
-  var lang = queryConfig["lang"]
-  mile = mile || "15"
-  if (lat && long) {
-    query += ' near:"' + lat + "," + long + '" within:' + mile + "mi"
-  } else if (place) {
-    query += ' near:"' + place + '" within:' + mile + 'mi'
-  }
-
-  if (lang) {
-    query += " lang:" + lang
-  }
-  query = query.trim()
-
-  // MENTIONING
-  var mentions = queryConfig['mentions']
-  if (mentions && mentions.length) {
-    mentions.forEach(function(user, index) {
-      if (index == 0) {
-        query += " @" + user
-      } else {
-        query += " OR @" + user
-      }
-    })
-    query = query.trim()
-  }
-
-  // DATE
-  var since = queryConfig['since']
-  var until = queryConfig['until']
-  if (since) {
-    query += " since:" + since
-  }
-  if (until) {
-    query += " until:" + until
-  }
-
-  query = query.trim()
-  
-  console.log('query: ' + query)
-  query = encodeURIComponent(query)
-  // (/\:/g, '%3A').replace(/\@/g, '%40')
-  //         .replace(/ /g, '%20').replace(/\#/g, '%23')
-  return query
 }
 
 function getUserIds() {

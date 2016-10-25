@@ -9,6 +9,7 @@
   "author": "ahmetenis",
   "license": "ISC",
   "dependencies": {
+    "json2csv": "^3.7.0",
     "q": "^1.4.1",
     "request": "^2.72.0",
     "x-ray": "^2.3.0"

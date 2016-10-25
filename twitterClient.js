@@ -3,6 +3,7 @@ var twitter = require("twitter")
 var request = require("request")
 var fs = require("fs")
 var q = require("q")
+var generateQuery = require('generateQuery').generateQuery;
 
 var twitterClient = function() {
   try {
@@ -102,6 +103,7 @@ var twitterClient = function() {
             console.log(new Date(response.headers['x-rate-limit-reset'] * 1000))
           }
         } else {
+          console.log(tweets);
           deferred.resolve(tweets)
           console.log("REMAINING RATE LIMITS:")
           console.log(clients.map( client => client["quota"]))
@@ -110,9 +112,19 @@ var twitterClient = function() {
       
     })
 
+
     return deferred.promise
   }
 
+  // function search() {
+  //   var index = 0;
+  //   var query = generateQuery();
+  //   clientPool.promise.then(function(clients) {
+  //     var client = clients[index % clients.length];
+  //     index += 1;
+  //     client.get('search', {q:query}, )
+  //   })
+  // }
   return {
     "preparePool": preparePool,
     "lookupTweets": lookupTweets
@@ -120,3 +132,7 @@ var twitterClient = function() {
 }
 
 module.exports = twitterClient()
+
+if (require.main == module) {
+  var client = twitterClient();
+}
